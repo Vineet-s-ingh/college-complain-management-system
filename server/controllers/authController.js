@@ -149,9 +149,9 @@ exports.studentLogin = async (req, res) => {
     // Check if student exists
     const student = await Student.findOne({ email }).select('+password');
     if (!student) {
-      return res.status(401).json({
+      return res.status(404).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'User does not exist'
       });
     }
 
@@ -165,10 +165,11 @@ exports.studentLogin = async (req, res) => {
 
     // Check password
     const isMatch = await student.comparePassword(password);
+    console.log('Password match:', isMatch); // Debugging line
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Incorrect password'
       });
     }
 
@@ -176,19 +177,18 @@ exports.studentLogin = async (req, res) => {
     const token = student.generateAuthToken();
 
     res.status(200).json({
-        success: true,
-        token,
-        role: 'student',
-        user: {
-          id: student._id,
-          name: student.name,
-          email: student.email,
-          rollNo: student.rollNo,
-          department: student.department,
-          // any other fields you want frontend to have
-        }
-      });
-      
+      success: true,
+      token,
+      role: 'student',
+      user: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        rollNo: student.rollNo,
+        department: student.department,
+        // any other fields you want frontend to have
+      }
+    });
 
   } catch (error) {
     console.error('Error in student login:', error);
@@ -544,6 +544,25 @@ exports.checkAuth = async (req, res) => {
     res.status(500).json({ success: false, message: 'Logout failed', error: error.message });
   }
 };
+exports.resendStudentOtp = async (req, res) => {
+  const { email } = req.body;
+  const student = await Student.findOne({ email });
+  if (!student) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  
+  // Generate new OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  student.otp = otp;
+  student.otpExpiry = Date.now() + 15 * 60 * 1000; // 15 min expiry
+  await student.save();
+
+  // Send OTP via email
+   await sendVerificationEmail(email, otp);
+
+  res.json({ message: "OTP resent successfully" });
+};
+
 
 
   
